@@ -2,9 +2,8 @@ import React from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, query } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// --- Firebase Configuration ---
+// --- Firebase Configuration (only auth + firestore now) ---
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_API_KEY,
   authDomain: process.env.REACT_APP_AUTH_DOMAIN,
@@ -18,22 +17,24 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
+
+// --- API base URLs (from .env) ---
+const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:3000";
+const FILES_BASE = process.env.REACT_APP_FILES_BASE || "http://localhost:8080";
 
 // --- Helper Components ---
 
-// Chi Psi Hourglass Logo SVG with specific colors
+// Chi Psi Hourglass Logo
 const ChiPsiLogo = () => (
   <svg className="h-12 w-12" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <polygon points="0,0 100,0 50,50" fill="#683491" /> {/* Custom Purple */}
-    <polygon points="0,100 100,100 50,50" fill="#683491" /> {/* Custom Purple */}
-    <polygon points="0,0 0,100 50,50" fill="#b49759" /> {/* Custom Gold */}
-    <polygon points="100,0 100,100 50,50" fill="#b49759" /> {/* Custom Gold */}
+    <polygon points="0,0 100,0 50,50" fill="#683491" />
+    <polygon points="0,100 100,100 50,50" fill="#683491" />
+    <polygon points="0,0 0,100 50,50" fill="#b49759" />
+    <polygon points="100,0 100,100 50,50" fill="#b49759" />
   </svg>
 );
 
-
-// Icon for file types
+// File type icons
 const FileIcon = ({ fileType }) => {
   const icons = {
     pdf: (
@@ -53,13 +54,12 @@ const FileIcon = ({ fileType }) => {
     )
   };
 
-  if (fileType.startsWith('image/')) return icons.image;
+  if (fileType?.startsWith('image/')) return icons.image;
   if (fileType === 'application/pdf') return icons.pdf;
   return icons.default;
 };
 
 // --- Main Application Component ---
-// Renamed back to "App" to match the default project structure
 function App() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [password, setPassword] = React.useState('');
@@ -137,7 +137,7 @@ function App() {
     setSearch(prev => ({ ...prev, [name]: value }));
   };
 
-  // --- File Upload ---
+  // --- File Upload (to Express backend) ---
   const handleFileUpload = async (e) => {
     e.preventDefault();
     const { file, class: className, professor, year } = e.target.elements;
@@ -151,21 +151,28 @@ function App() {
     setUploadSuccess(false);
 
     const uploadedFile = file.files[0];
-    const storageRef = ref(storage, `files/${Date.now()}_${uploadedFile.name}`);
+    const formData = new FormData();
+    formData.append("file", uploadedFile);
 
     try {
-      const snapshot = await uploadBytes(storageRef, uploadedFile);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      // Upload to backend
+      const res = await fetch(`${API_BASE}/upload`, { method: "POST", body: formData });
+      if (!res.ok) throw new Error("Upload failed");
+      const { url } = await res.json(); // relative path like /uploads/filename.ext
 
+      // Full URL (served by Nginx)
+      const fileUrl = `${FILES_BASE}${url}`;
+
+      // Store metadata in Firestore
       await addDoc(collection(db, "files"), {
         name: uploadedFile.name,
         type: uploadedFile.type,
-        url: downloadURL,
+        url: fileUrl,
         class: className.value,
         professor: professor.value,
         year: Number(year.value),
         uploadedAt: new Date(),
-        uploaderId: user.uid,
+        uploaderId: user?.uid || null,
       });
 
       setUploadSuccess(true);
@@ -176,21 +183,17 @@ function App() {
       }, 2000);
 
     } catch (error) {
-      console.error("Error uploading file:", error);
-      console.error("File upload failed. Please try again.");
+      console.error("File upload failed:", error);
       setIsUploading(false);
     }
   };
 
-  // --- Render Logic ---
-
+  // --- Render ---
   if (!isAuthenticated) {
     return (
       <div className="bg-gray-100 min-h-screen flex items-center justify-center">
         <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
-          <div className="flex justify-center mb-6">
-             <ChiPsiLogo />
-          </div>
+          <div className="flex justify-center mb-6"><ChiPsiLogo /></div>
           <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">Enter Access Code</h2>
           <form onSubmit={handlePasswordSubmit}>
             <input
@@ -213,7 +216,6 @@ function App() {
     );
   }
 
-
   return (
     <div className="bg-gray-100 min-h-screen font-sans">
       <header className="bg-white shadow-md">
@@ -232,30 +234,9 @@ function App() {
         <div className="bg-white p-6 rounded-lg shadow-md mb-8">
           <h2 className="text-2xl font-semibold mb-4 text-gray-700">Find Resources</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <input
-              type="text"
-              name="class"
-              placeholder="Filter by Class (e.g., CS101)"
-              value={search.class}
-              onChange={handleSearchChange}
-              className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-            <input
-              type="text"
-              name="professor"
-              placeholder="Filter by Professor"
-              value={search.professor}
-              onChange={handleSearchChange}
-              className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-            <input
-              type="text"
-              name="year"
-              placeholder="Filter by Year"
-              value={search.year}
-              onChange={handleSearchChange}
-              className="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
+            <input type="text" name="class" placeholder="Filter by Class" value={search.class} onChange={handleSearchChange} className="p-3 border rounded-lg" />
+            <input type="text" name="professor" placeholder="Filter by Professor" value={search.professor} onChange={handleSearchChange} className="p-3 border rounded-lg" />
+            <input type="text" name="year" placeholder="Filter by Year" value={search.year} onChange={handleSearchChange} className="p-3 border rounded-lg" />
           </div>
         </div>
 
@@ -265,7 +246,7 @@ function App() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {filteredFiles.length > 0 ? (
               filteredFiles.map(file => (
-                <div key={file.id} className="bg-white rounded-lg shadow-md overflow-hidden transform hover:-translate-y-1 transition duration-300">
+                <div key={file.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:-translate-y-1 transition">
                   <div className="p-4 flex flex-col items-center justify-center bg-gray-50">
                     <FileIcon fileType={file.type} />
                   </div>
@@ -278,7 +259,7 @@ function App() {
                       href={file.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-4 inline-block w-full text-center bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
+                      className="mt-4 inline-block w-full text-center bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 px-4 rounded-lg transition"
                     >
                       Download
                     </a>
@@ -300,19 +281,19 @@ function App() {
               <form onSubmit={handleFileUpload}>
                 <div className="mb-4">
                   <label className="block text-gray-700 font-semibold mb-2" htmlFor="file">File</label>
-                  <input type="file" name="file" id="file" required className="w-full p-2 border border-gray-300 rounded-lg" />
+                  <input type="file" name="file" id="file" required className="w-full p-2 border rounded-lg" />
                 </div>
                 <div className="mb-4">
                   <label className="block text-gray-700 font-semibold mb-2" htmlFor="class">Class</label>
-                  <input type="text" name="class" id="class" required placeholder="e.g., ECON 201" className="w-full p-3 border border-gray-300 rounded-lg" />
+                  <input type="text" name="class" id="class" required placeholder="e.g., ECON 201" className="w-full p-3 border rounded-lg" />
                 </div>
                 <div className="mb-4">
                   <label className="block text-gray-700 font-semibold mb-2" htmlFor="professor">Professor</label>
-                  <input type="text" name="professor" id="professor" required placeholder="e.g., Dr. Smith" className="w-full p-3 border border-gray-300 rounded-lg" />
+                  <input type="text" name="professor" id="professor" required placeholder="e.g., Dr. Smith" className="w-full p-3 border rounded-lg" />
                 </div>
                 <div className="mb-4">
                   <label className="block text-gray-700 font-semibold mb-2" htmlFor="year">Year</label>
-                  <input type="number" name="year" id="year" required placeholder="e.g., 2023" className="w-full p-3 border border-gray-300 rounded-lg" />
+                  <input type="number" name="year" id="year" required placeholder="e.g., 2023" className="w-full p-3 border rounded-lg" />
                 </div>
                 <div className="flex justify-end gap-4 mt-6">
                   <button type="button" onClick={() => setShowUploadModal(false)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg">
@@ -343,6 +324,6 @@ function App() {
       )}
     </div>
   );
-};
+}
 
 export default App;
