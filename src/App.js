@@ -5,16 +5,13 @@ import { getFirestore, collection, addDoc, onSnapshot, query } from 'firebase/fi
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // --- Firebase Configuration ---
-// IMPORTANT: Replace with your actual Firebase configuration.
-// Import the functions you need from the SDKs you need
 const firebaseConfig = {
-  apiKey: "AIzaSyCBEekLk9g8R1UvpYiQB_wvguGIMr1TOYs",
-  authDomain: "azd-storage.firebaseapp.com",
-  projectId: "azd-storage",
-  storageBucket: "azd-storage.firebasestorage.app",
-  messagingSenderId: "289679311223",
-  appId: "1:289679311223:web:ade8dbf47b99cd6e22a172",
-  measurementId: "G-CT5E34FX53"
+  apiKey: process.env.REACT_APP_API_KEY,
+  authDomain: process.env.REACT_APP_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_APP_ID
 };
 
 // --- Firebase Initialization ---
@@ -28,7 +25,6 @@ const storage = getStorage(app);
 // Chi Psi Hourglass Logo SVG with specific colors
 const ChiPsiLogo = () => (
   <svg className="h-12 w-12" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    {/* Updated logo with the requested hex color codes */}
     <polygon points="0,0 100,0 50,50" fill="#683491" /> {/* Custom Purple */}
     <polygon points="0,100 100,100 50,50" fill="#683491" /> {/* Custom Purple */}
     <polygon points="0,0 0,100 50,50" fill="#b49759" /> {/* Custom Gold */}
@@ -63,8 +59,8 @@ const FileIcon = ({ fileType }) => {
 };
 
 // --- Main Application Component ---
-
-const FraternityFileHub = () => {
+// Renamed back to "App" to match the default project structure
+function App() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [password, setPassword] = React.useState('');
   const [error, setError] = React.useState('');
@@ -349,4 +345,4 @@ const FraternityFileHub = () => {
   );
 };
 
-export default FraternityFileHub;
+export default App;
