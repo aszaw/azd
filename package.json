@@ -2,7 +2,7 @@
   "name": "azd-hub",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://plover.gg/azd",
+  "homepage": "https://plover.gg",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.7.0",
