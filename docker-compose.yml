@@ -18,8 +18,8 @@ services:
 
   web:
     build:
-      context: ./src
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: src/Dockerfile
     ports:
       - "3003:3003"
     depends_on:
