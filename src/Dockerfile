@@ -17,4 +17,3 @@ WORKDIR /app
 COPY --from=build ./public ./public
 
 EXPOSE 3003
-CMD ["npm", "run", "start"]
