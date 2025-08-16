@@ -16,6 +16,17 @@ services:
     depends_on:
       - db
 
+  web:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    depends_on:
+      - backend
+      - db
+      - nginx
+
   nginx:
     image: nginx:alpine
     container_name: file-nginx

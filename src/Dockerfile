@@ -32,4 +32,4 @@ COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 
 EXPOSE 3003
-CMD ["node", "server.js"]
+CMD ["npm", "run", "start"]
