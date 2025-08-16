@@ -22,10 +22,6 @@ services:
       dockerfile: src/Dockerfile
     ports:
       - "3003:3003"
-    depends_on:
-      - backend
-      - db
-      - nginx
 
   nginx:
     image: nginx:alpine
