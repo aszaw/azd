@@ -72,7 +72,11 @@ function App() {
   // --- Password
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
-    if (password === '9737') {
+    if (password === '9737') { // TODO: FIX
+      // TODO: FIX
+      // TODO: FIX
+      // this is very real btw, lets hash the user input clientside before we send, and then see if it matches using a private env var?
+      // or any other auth method really
       setIsAuthenticated(true);
       setError('');
     } else setError('Incorrect Password. Please try again.');
