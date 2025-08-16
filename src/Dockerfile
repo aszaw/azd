@@ -14,6 +14,6 @@ RUN npm run build
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
-COPY --from=build ./public ./public
+COPY --from=build /app/public ./public
 
 EXPOSE 3003
