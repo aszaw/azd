@@ -19,5 +19,5 @@ COPY --from=build /app/package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app ./
 
-EXPOSE 3003
+EXPOSE 3000
 CMD ["npm", "start"]
