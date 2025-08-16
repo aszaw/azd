@@ -2,28 +2,32 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import path from "path";
-import { fileURLToPath } from "url";
 import fs from "fs";
+import { fileURLToPath } from "url";
+import pkg from "pg";
+
+const { Pool } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// configurable via env
+// Configurable via env
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, "uploads");
+const PORT = process.env.PORT || 4000;
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || `${50 * 1024 * 1024}`, 10); // 50MB
 
-// ensure upload dir exists
+// Ensure upload dir exists
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-// basic CORS (lock this down in prod)
+// CORS setup (adjust origins in production)
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:3000", "http://localhost:5173", "http://localhost:8080"],
+  origin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:3000","http://localhost:5173","http://localhost:8080"],
   credentials: true
 }));
 
-// Multer setup (disk storage, keep original filename with a timestamp prefix)
+// Multer setup (disk storage with timestamp prefix)
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
   filename: (_req, file, cb) => {
@@ -34,20 +38,57 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: MAX_FILE_SIZE } });
 
+// Postgres pool
+const pool = new Pool({
+  user: process.env.POSTGRES_USER,
+  host: process.env.POSTGRES_HOST,
+  database: process.env.POSTGRES_DB,
+  password: process.env.POSTGRES_PASSWORD,
+  port: 5432,
+});
+
 // Upload endpoint
-app.post("/upload", upload.single("file"), (req, res) => {
-  if (!req.file) return res.status(400).send("No file uploaded");
-  // Nginx serves "/uploads" from the same volume; we return a relative URL
-  res.json({ url: `/uploads/${req.file.filename}` });
+app.post("/upload", upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+  try {
+    await pool.query(
+      "INSERT INTO files (filename, class) VALUES ($1, $2)",
+      [req.file.filename, req.body.class || null]
+    );
+    res.json({ url: `/uploads/${req.file.filename}` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database insert failed" });
+  }
+});
+
+// Fuzzy search endpoint
+app.get("/search", async (req, res) => {
+  const { query } = req.query;
+  if (!query) return res.status(400).json({ error: "Missing query parameter" });
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT filename, class, upload_time
+      FROM files
+      WHERE filename % $1 OR class % $1
+      ORDER BY GREATEST(similarity(filename, $1), similarity(class, $1)) DESC
+      LIMIT 20
+      `,
+      [query]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Search query failed" });
+  }
 });
 
 // Health check
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
-// (Optional) static serving directly from Express if you want (Nginx already handles this):
-// app.use("/uploads", express.static(UPLOAD_DIR));
-
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`Backend listening on :${port}, upload dir: ${UPLOAD_DIR}`);
+app.listen(PORT, () => {
+  console.log(`Backend running on port ${PORT}, upload dir: ${UPLOAD_DIR}`);
 });

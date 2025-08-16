@@ -1,21 +1,25 @@
-FROM node:20-alpine
+# Use Node 18 base image
+FROM node:18
 
-# Create app dir
+# Set working directory
 WORKDIR /app
 
-# Install dependencies separately for better caching
-COPY backend/package.json ./
-RUN npm install --production
+# Copy package.json and package-lock.json (if any) and install dependencies
+COPY package*.json ./
+RUN npm install
 
-# Copy source
-COPY backend/server.js ./server.js
+# Copy the rest of the backend source
+COPY . .
 
-# Create uploads directory inside container (still mount a volume)
+# Create uploads directory inside container
 RUN mkdir -p /app/uploads
 
-# Env defaults (override in compose)
-ENV PORT=3000
+# Set environment defaults (can override in Docker Compose)
+ENV PORT=4000
 ENV UPLOAD_DIR=/app/uploads
 
-EXPOSE 3000
-CMD ["npm", "start"]
+# Expose the app port
+EXPOSE 4000
+
+# Start the server
+CMD ["node", "server.js"]
