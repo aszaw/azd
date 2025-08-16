@@ -19,3 +19,4 @@ COPY --from=build /app/package*.json ./
 COPY --from=deps /app/node_modules ./node_modules
 
 EXPOSE 3003
+CMD ["npm", "start"]
